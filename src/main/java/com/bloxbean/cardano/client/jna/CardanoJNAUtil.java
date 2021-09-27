@@ -196,4 +196,11 @@ public class CardanoJNAUtil {
         return CardanoJNA.INSTANCE.validateTransactionCBOR(rawTxnInHex);
     }
 
+    public static void main(String[] args) {
+        String phrase = "coconut you order found animal inform tent anxiety pepper aisle web horse source indicate eyebrow viable lawsuit speak dragon scheme among animal slogan exchange";
+
+        String output = CardanoJNAUtil.getBaseAddress(phrase, 0, false);
+        System.out.println(output);
+    }
+
 }

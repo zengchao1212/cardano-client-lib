@@ -60,6 +60,12 @@ public class Account {
         generateNew();
     }
 
+    public Account(Network network,String baseAddress,String enterpriseAddress) {
+        this.network = network;
+        this.baseAddress=baseAddress;
+        this.enterpriseAddress=enterpriseAddress;
+    }
+
     /**
      * Create a mainnet account from a mnemonic
      * @param mnemonic
@@ -112,15 +118,16 @@ public class Account {
      * @return baseAddress at index
      */
     public String baseAddress() {
-        if(this.baseAddress == null || this.baseAddress.trim().length() == 0) {
-            Network.ByReference refNetwork = new Network.ByReference();
-            refNetwork.network_id = network.network_id;
-            refNetwork.protocol_magic = network.protocol_magic;
-
-            this.baseAddress = CardanoJNAUtil.getBaseAddressByNetwork(mnemonic, index, refNetwork);
-        }
-
-        return this.baseAddress;
+//        if(this.baseAddress == null || this.baseAddress.trim().length() == 0) {
+//            Network.ByReference refNetwork = new Network.ByReference();
+//            refNetwork.network_id = network.network_id;
+//            refNetwork.protocol_magic = network.protocol_magic;
+//
+//            this.baseAddress = CardanoJNAUtil.getBaseAddressByNetwork(mnemonic, index, refNetwork);
+//        }
+//
+//        return this.baseAddress;
+        return enterpriseAddress();
     }
 
     /**

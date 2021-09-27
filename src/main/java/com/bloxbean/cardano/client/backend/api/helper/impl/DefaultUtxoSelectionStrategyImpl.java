@@ -62,7 +62,7 @@ public class DefaultUtxoSelectionStrategyImpl implements UtxoSelectionStrategy {
                     if(unitFound)
                         selectedUtxos.add(utxo);
 
-                    if(totalUtxoAmount.compareTo(amount) == 1) {
+                    if(totalUtxoAmount.compareTo(amount) >= 0) {
                         canContinue = false;
                         break;
                     }

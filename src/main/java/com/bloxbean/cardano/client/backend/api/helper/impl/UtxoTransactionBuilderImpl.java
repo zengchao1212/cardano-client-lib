@@ -89,17 +89,26 @@ public class UtxoTransactionBuilderImpl implements UtxoTransactionBuilder {
         //Get sender -> utxos map based on the unit and total qty requirement
         //Assumption: If Utxos are provided as part PaymentTransaction, then all PaymentTransactions will have Utxos list,
         // so we dont need to find utxos
-        if(senderToUtxoMap == null || senderToUtxoMap.size() == 0) {
-            senderToUtxoMap = getSenderToUtxosMap(senderAmountsMap);
+        if(senderToUtxoMap.isEmpty()) {
+            senderToUtxoMap = getSenderToUtxosMap(senderAmountsMap,transactions.get(0).getFee());
         }
-
-        BigInteger totalFee = BigInteger.valueOf(0);
+        BigInteger totalInputAmount=BigInteger.ZERO;
+        for(Map.Entry<String, Set<Utxo>> entry:senderToUtxoMap.entrySet()){
+            Set<Utxo> utxos=entry.getValue();
+            BigInteger totalOfOneSender=utxos.stream().map(utxo->utxo.getAmount().stream().
+                    filter(amount -> amount.getUnit().equals(LOVELACE)).map(Amount::getQuantity)
+                    .reduce(BigInteger::add).orElse(BigInteger.ZERO)).reduce(BigInteger::add).orElse(BigInteger.ZERO);
+            totalInputAmount=totalInputAmount.add(totalOfOneSender);
+        }
+        BigInteger totalFee = BigInteger.ZERO;
         Map<String, BigInteger> senderMiscCostMap = new HashMap<>(); //Misc cost of sender, mini ada
 
         //Create output for receivers and calculate total fees/cost for each sender
         for(PaymentTransaction transaction: transactions) {
-            totalFee = createReceiverOutputsAndPopulateCost(transaction, detailsParams, totalFee, transactionOutputs, senderMiscCostMap);
+            createReceiverOutputsAndPopulateCost(transaction, detailsParams, totalFee, transactionOutputs, senderMiscCostMap);
         }
+        totalFee=transactions.get(0).getFee();
+        BigInteger totalWithdraw=transactionOutputs.stream().map(transactionOutput -> transactionOutput.getValue().getCoin()).reduce(BigInteger::add).orElse(BigInteger.ZERO);
 
         //Check if min cost is there in all selected Utxos
         for(String sender: senderMiscCostMap.keySet()) {
@@ -107,9 +116,8 @@ public class UtxoTransactionBuilderImpl implements UtxoTransactionBuilder {
         }
 
         //Go through sender Utxos, Build Inputs first from Utxos and then change outputs
-        senderToUtxoMap.entrySet().forEach( entry ->{
-            String sender = entry.getKey(); //Sender and it's utxos
-            Set<Utxo> utxoSet = entry.getValue();
+        //Sender and it's utxos
+        senderToUtxoMap.forEach((sender, utxoSet) -> {
             try {
                 buildOuputsForSenderFromUtxos(sender, utxoSet, transactionInputs, transactionOutputs, senderAmountsMap,
                         senderMiscCostMap, detailsParams);
@@ -119,6 +127,14 @@ public class UtxoTransactionBuilderImpl implements UtxoTransactionBuilder {
             }
         });
 
+        BigInteger returnAmount=totalInputAmount.subtract(totalWithdraw).subtract(totalFee);
+        if(returnAmount.subtract(detailsParams.getMinUtxoValue()).intValue()>0){
+            TransactionOutput.TransactionOutputBuilder outputBuilder = TransactionOutput.builder()
+                    .address(transactions.get(0).getSender().baseAddress()).value(new Value(returnAmount,null));
+            transactionOutputs.add(outputBuilder.build());
+        }else{
+            totalFee=totalFee.add(returnAmount);
+        }
         TransactionBody transactionBody = TransactionBody.builder()
                 .inputs(transactionInputs)
                 .outputs(transactionOutputs)
@@ -213,7 +229,10 @@ public class UtxoTransactionBuilderImpl implements UtxoTransactionBuilder {
         //Transaction will fail if minimun ada not there. So try to get some additional utxos
         verifyMinAdaInOutputAndUpdateIfRequired(inputs, transactionOutput, detailsParams, utxos);
 
-        outputs.add(transactionOutput);
+        if(transactionOutput.getValue().getCoin().compareTo(BigInteger.ZERO)>0){
+            outputs.add(transactionOutput);
+        }
+
 
         //Create a separate output for minted assets
         //Create output
@@ -264,8 +283,11 @@ public class UtxoTransactionBuilderImpl implements UtxoTransactionBuilder {
             List<Utxo> additionalUtxos = getUtxos(transactionOutput.getAddress(), LOVELACE, minRequiredLovelaceInOutput,
                     new HashSet(ignoreUtxoList));
 
-            if(additionalUtxos == null || additionalUtxos.size() == 0)
-                throw new InsufficientBalanceException("Not enough utxos found to cover minimum lovelace in an ouput");
+            if(additionalUtxos == null || additionalUtxos.size() == 0){
+//                throw new InsufficientBalanceException("Not enough utxos found to cover minimum lovelace in an ouput");
+                transactionOutput.setValue(new Value(BigInteger.ZERO, null));
+                break;
+            }
 
             if(LOG.isDebugEnabled())
                 LOG.debug("Additional Utoxs found: " + additionalUtxos);
@@ -335,7 +357,7 @@ public class UtxoTransactionBuilderImpl implements UtxoTransactionBuilder {
         return senderToUtxoMap;
     }
 
-    private Map<String, Set<Utxo>> getSenderToUtxosMap(Multimap<String, Amount> senderAmountsMap) throws ApiException {
+    private Map<String, Set<Utxo>> getSenderToUtxosMap(Multimap<String, Amount> senderAmountsMap,BigInteger fee) throws ApiException {
         Map<String, Set<Utxo>> senderToUtxoMap = new HashMap<>();
         for(String sender: senderAmountsMap.keySet()) { //Get all Utxos for all transactions
             Collection<Amount> amts = senderAmountsMap.get(sender);
@@ -344,7 +366,7 @@ public class UtxoTransactionBuilderImpl implements UtxoTransactionBuilder {
             Set<Utxo> utxoSet = new HashSet<>();
             for(Amount amt: amts) {
                 //Get utxos
-                List<Utxo> utxos = getUtxos(sender, amt.getUnit(), amt.getQuantity());
+                List<Utxo> utxos = getUtxos(sender, amt.getUnit(), amt.getQuantity().add(fee));
                 if(utxos == null || utxos.size() == 0)
                     throw new ApiException("No utxos found for address : " + sender);
                 utxos.forEach(utxo -> {
@@ -430,9 +452,11 @@ public class UtxoTransactionBuilderImpl implements UtxoTransactionBuilder {
 
             //Check if minimum Ada is not met. Topup
             //Transaction will fail if minimun ada not there. So try to get some additiona utxos
-            verifyMinAdaInOutputAndUpdateIfRequired(transactionInputs, changeOutput, detailsParams, utxoSet);
+//            verifyMinAdaInOutputAndUpdateIfRequired(transactionInputs, changeOutput, detailsParams, utxoSet);
+//            if(changeOutput.getValue().getCoin().compareTo(BigInteger.ZERO)>0){
+//                transactionOutputs.add(changeOutput);
+//            }
 
-            transactionOutputs.add(changeOutput);
         }
     }
 

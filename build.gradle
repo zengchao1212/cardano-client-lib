@@ -1,7 +1,7 @@
 plugins {
     id 'java'
+    id 'maven'
     id 'maven-publish'
-    id 'signing'
 }
 
 repositories {
@@ -40,14 +40,6 @@ sourceSets {
             srcDirs "src/main/resources", "native"
         }
     }
-    integrationTest {
-        java {
-            compileClasspath += main.output + test.output + configurations.testCompile
-            runtimeClasspath += main.output + test.output + compileClasspath + configurations.testRuntime
-            srcDir file('src/integration-test/java')
-        }
-        resources.srcDir file('src/integration-test/resources')
-    }
 }
 
 configurations {
@@ -58,9 +50,26 @@ configurations {
 }
 
 compileJava {
-    options.compilerArgs += ["-Aproject=${project.group}/${project.name}"]
+    options.encoding = "UTF-8"
+    options.compilerArgs += ["-Xlint:none","-Aproject=${project.group}/${project.name}"]
 }
-
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: "http://nexus.tqxd.com/repository/maven-snapshots") {
+                authentication(userName: "devuser", password: "devuser")
+            }
+            pom.groupId = "$project.group"
+            pom.artifactId = "$project.archivesBaseName"
+            pom.version = "$project.version"
+        }
+    }
+}
+test {
+    scanForTestClasses = false
+    ignoreFailures = true
+    exclude '**/*'
+}
 task sourceJar(type: Jar) {
     classifier "sources"
     from sourceSets.main.allJava
@@ -75,40 +84,6 @@ artifacts {
     archives jar
     archives sourceJar
     archives javadocJar
-}
-
-//create a single Jar with all dependencies
-task fatJar(type: Jar) {
-    manifest {
-        attributes 'Main-Class': 'com.bloxbean.cardano.client.cli.CLIMain'
-    }
-    baseName = project.name + '-all'
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-    with jar
-}
-
-test {
-    useJUnitPlatform()
-    testLogging {
-        showStandardStreams = true
-    }
-}
-
-task integrationTest(type: Test) {
-    description = 'Runs the integration tests.'
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
-    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    classpath = sourceSets.integrationTest.runtimeClasspath
-    outputs.upToDateWhen { false }
-   // mustRunAfter(tasks.named('test'))
-    systemProperty('BF_PROJECT_ID', findProperty("BF_PROJECT_ID"))
-    testLogging {
-        showStandardStreams = true
-    }
-}
-
-integrationTest {
-    useJUnitPlatform()
 }
 
 publishing {
@@ -163,12 +138,4 @@ publishing {
     }
 }
 
-ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
-
-if (isReleaseVersion && !project.hasProperty("skipSigning")) {
-    signing {
-//        sign configurations.archives
-        sign publishing.publications
-    }
-}
 
