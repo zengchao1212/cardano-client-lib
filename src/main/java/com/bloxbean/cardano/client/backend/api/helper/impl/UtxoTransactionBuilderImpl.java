@@ -128,6 +128,9 @@ public class UtxoTransactionBuilderImpl implements UtxoTransactionBuilder {
         });
 
         BigInteger returnAmount=totalInputAmount.subtract(totalWithdraw).subtract(totalFee);
+        if(returnAmount.signum()==-1){
+            throw new ApiRuntimeException("no enough balance");
+        }
         if(returnAmount.subtract(detailsParams.getMinUtxoValue()).intValue()>0){
             TransactionOutput.TransactionOutputBuilder outputBuilder = TransactionOutput.builder()
                     .address(transactions.get(0).getSender().baseAddress()).value(new Value(returnAmount,null));
