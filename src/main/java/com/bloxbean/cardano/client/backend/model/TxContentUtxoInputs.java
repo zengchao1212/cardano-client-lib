@@ -19,5 +19,9 @@ import java.util.List;
 @JsonNaming(PropertyNamingStrategy.SnakeCaseStrategy.class)
 public class TxContentUtxoInputs {
     private String address;
+    private String txHash;
+    private int outputIndex;
+    private String dataHash;
+    private boolean collateral;
     private List<TxContentOutputAmount> amount = new ArrayList<>();
 }
