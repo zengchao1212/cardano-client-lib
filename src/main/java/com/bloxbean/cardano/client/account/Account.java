@@ -1,13 +1,16 @@
 package com.bloxbean.cardano.client.account;
 
+import com.bloxbean.cardano.client.common.Base32;
+import com.bloxbean.cardano.client.common.Base58;
+import com.bloxbean.cardano.client.common.Bech32;
 import com.bloxbean.cardano.client.common.model.Network;
 import com.bloxbean.cardano.client.common.model.Networks;
 import com.bloxbean.cardano.client.exception.AddressExcepion;
 import com.bloxbean.cardano.client.exception.CborSerializationException;
-import com.bloxbean.cardano.client.jna.CardanoJNAUtil;
 import com.bloxbean.cardano.client.transaction.spec.Transaction;
 import com.bloxbean.cardano.client.util.HexUtil;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.bouncycastle.util.encoders.Hex;
 
 /**
  * Create and manage secrets, and perform account-based work such as signing transactions.
@@ -135,14 +138,6 @@ public class Account {
      * @return enterpriseAddress at index
      */
     public String enterpriseAddress() {
-        if(this.enterpriseAddress == null || this.enterpriseAddress.trim().length() == 0) {
-            Network.ByReference refNetwork = new Network.ByReference();
-            refNetwork.network_id = network.network_id;
-            refNetwork.protocol_magic = network.protocol_magic;
-
-            this.enterpriseAddress = CardanoJNAUtil.getEnterpriseAddressByNetwork(mnemonic, index, refNetwork);
-        }
-
         return this.enterpriseAddress;
     }
 
@@ -168,12 +163,7 @@ public class Account {
      * @throws CborSerializationException
      */
     public String sign(Transaction transaction) throws CborSerializationException {
-        String txnHex = transaction.serializeToHex();
-
-        if(txnHex == null || txnHex.length() == 0)
-            throw new CborSerializationException("Transaction could not be serialized");
-
-        return CardanoJNAUtil.sign(txnHex, privateKey);
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -183,24 +173,22 @@ public class Account {
      * @throws CborSerializationException
      */
     public String sign(String txnHex) throws CborSerializationException {
-        if(txnHex == null || txnHex.length() == 0)
-            throw new CborSerializationException("Invalid transaction hash");
-
-        return CardanoJNAUtil.sign(txnHex, privateKey);
+        throw new UnsupportedOperationException();
     }
 
     public static byte[] toBytes(String address) throws AddressExcepion {
         if(address == null)
             return null;
 
-        String hexStr = null;
+        String hexStr;
         if(address.startsWith("addr")) { //Shelley address
-            hexStr = CardanoJNAUtil.bech32AddressToBytes(address);
+            byte[] bytes= Bech32.decode(address).data;
+            hexStr= Hex.toHexString(Base32.decode(bytes));
         } else { //Try for byron address
-            hexStr = CardanoJNAUtil.base58AddressToBytes(address);
+            hexStr = Hex.toHexString(Base58.decode(address));
         }
 
-        if(hexStr == null || hexStr.length() == 0)
+        if(hexStr.length() == 0)
             throw new AddressExcepion("Address to bytes failed");
 
         try {
@@ -211,33 +199,28 @@ public class Account {
     }
 
     public static String bytesToBase58Address(byte[] bytes) throws AddressExcepion { //byron address
-        String address = CardanoJNAUtil.hexBytesToBase58Address(HexUtil.encodeHexString(bytes));
+        String address = Base58.encode(bytes);
 
-        if(address == null || address.isEmpty())
+        if(address.isEmpty())
             throw new AddressExcepion("Bytes cannot be converted to base58 address");
 
         return address;
     }
 
     public static String bytesToBech32(byte[] bytes) throws AddressExcepion {
-        String bech32Address = CardanoJNAUtil.hexBytesToBech32Address(HexUtil.encodeHexString(bytes));
-        if(bech32Address == null || bech32Address.isEmpty())
+        String bech32Address = Bech32.encode("addr",bytes);
+        if(bech32Address.isEmpty())
             throw new AddressExcepion("Bytes cannot be converted to bech32 address");
 
         return bech32Address;
     }
 
     private void generateNew() {
-        String mnemonic = CardanoJNAUtil.generateMnemonic();
-        this.mnemonic = mnemonic;
-        getPrivateKey();
-        baseAddress();
+        throw new UnsupportedOperationException();
     }
 
     private void getPrivateKey() {
-        this.privateKey = CardanoJNAUtil.getPrivateKeyFromMnemonic(mnemonic, index);
-        this.privateKeyBytes = CardanoJNAUtil.getPrivateKeyBytesFromMnemonic(mnemonic, index);
-        this.publicKeyBytes = CardanoJNAUtil.getPublicKeyBytesFromMnemonic(mnemonic, index);
+        throw new UnsupportedOperationException();
     }
 
     @Override
