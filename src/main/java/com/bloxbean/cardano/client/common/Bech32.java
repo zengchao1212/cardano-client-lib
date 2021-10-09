@@ -145,7 +145,7 @@ public class Bech32 {
         if (str.length() < 8) {
             throw new IllegalArgumentException("Input too short. Length = " + str.length());
         }
-        if (str.length() > 90) {
+        if (str.length() > 103) {
             throw new IllegalArgumentException("Input too long. Length = " + str.length());
         }
         for (int i = 0; i < str.length(); ++i) {
