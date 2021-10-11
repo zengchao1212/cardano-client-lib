@@ -208,7 +208,7 @@ public class Account {
     }
 
     public static String bytesToBech32(byte[] bytes) throws AddressExcepion {
-        String bech32Address = Bech32.encode("addr",bytes);
+        String bech32Address = Bech32.encode("addr",Base32.encode(bytes));
         if(bech32Address.isEmpty())
             throw new AddressExcepion("Bytes cannot be converted to bech32 address");
 
