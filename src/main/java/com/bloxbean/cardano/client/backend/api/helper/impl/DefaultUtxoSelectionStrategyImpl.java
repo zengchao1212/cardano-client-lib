@@ -33,7 +33,7 @@ public class DefaultUtxoSelectionStrategyImpl implements UtxoSelectionStrategy {
         BigInteger totalUtxoAmount = BigInteger.valueOf(0);
         List<Utxo> selectedUtxos = new ArrayList<>();
         boolean canContinue = true;
-        int i = 0;
+        int i = 1;
 
         while(canContinue) {
             Result<List<Utxo>> result = utxoService.getUtxos(address, getUtxoFetchSize(),
