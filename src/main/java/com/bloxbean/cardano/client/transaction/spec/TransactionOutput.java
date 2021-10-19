@@ -57,11 +57,21 @@ public class TransactionOutput {
 
         ByteString addrByteStr = (ByteString)items.get(0);
         if(addrByteStr != null) {
-            try {
-                output.setAddress(Account.bytesToBech32(addrByteStr.getBytes()));
-            } catch (Exception e) {
-                throw new CborDeserializationException("Bytes cannot be converted to bech32 address", e);
+            byte[] data=addrByteStr.getBytes();
+            if(data.length==29||data.length==57){
+                try {
+                    output.setAddress(Account.bytesToBech32(addrByteStr.getBytes()));
+                } catch (Exception e) {
+                    throw new CborDeserializationException("Bytes cannot be converted to bech32 address", e);
+                }
+            }else{
+                try {
+                    output.setAddress(Account.bytesToBase58Address(addrByteStr.getBytes()));
+                } catch (Exception e) {
+                    throw new CborDeserializationException("Bytes cannot be converted to bech32 address", e);
+                }
             }
+
         }
 
         Value value = null;
